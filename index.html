@@ -24,6 +24,7 @@
 
   html, body {
     min-height: 100vh;
+    touch-action: manipulation; /* kill double-tap-to-zoom, keep pinch-zoom */
     background:
       radial-gradient(ellipse at 20% 10%, rgba(184, 136, 64, 0.12), transparent 50%),
       radial-gradient(ellipse at 80% 90%, rgba(200, 70, 44, 0.08), transparent 55%),
@@ -323,6 +324,8 @@
     transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.15s ease;
     color: var(--ink);
     user-select: none;
+    touch-action: manipulation; /* no zoom on fast double-tap of keys */
+    -webkit-tap-highlight-color: transparent;
   }
 
   button.key.op,
