@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CALQ — A Mechanical Calculator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,600;9..144,800;9..144,900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #ece5d8;
+    --bg-2: #d8cfb9;
+    --ink: #1a1612;
+    --ink-soft: #4a3f30;
+    --accent: #c8462c;
+    --brass: #b08840;
+    --rule: rgba(26, 22, 18, 0.18);
+    --shadow: 0 30px 60px -20px rgba(26, 22, 18, 0.35),
+              0 8px 20px -8px rgba(26, 22, 18, 0.25);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    min-height: 100vh;
+    background:
+      radial-gradient(ellipse at 20% 10%, rgba(184, 136, 64, 0.12), transparent 50%),
+      radial-gradient(ellipse at 80% 90%, rgba(200, 70, 44, 0.08), transparent 55%),
+      repeating-linear-gradient(0deg, transparent 0px, transparent 2px, rgba(26,22,18,0.012) 2px, rgba(26,22,18,0.012) 3px),
+      var(--bg);
+    color: var(--ink);
+    font-family: 'DM Mono', ui-monospace, monospace;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: "";
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.1 0 0 0 0 0.08 0 0 0 0 0.07 0 0 0 0.18 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    opacity: 0.55;
+    pointer-events: none;
+    z-index: 0;
+    mix-blend-mode: multiply;
+  }
+
+  .stage {
+    position: relative;
+    z-index: 1;
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 56px 40px 80px;
+    display: grid;
+    grid-template-columns: 1.05fr 1fr;
+    gap: 64px;
+    align-items: start;
+  }
+
+  header.masthead {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    border-bottom: 1px solid var(--ink);
+    padding-bottom: 14px;
+    margin-bottom: 8px;
+  }
+
+  .masthead .logo {
+    font-family: 'Fraunces', serif;
+    font-weight: 900;
+    font-size: 42px;
+    letter-spacing: -0.04em;
+    line-height: 1;
+    font-variation-settings: "opsz" 144;
+  }
+
+  .masthead .logo .period {
+    color: var(--accent);
+  }
+
+  .masthead .meta {
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+
+  .masthead .meta b {
+    color: var(--ink);
+    font-weight: 500;
+  }
+
+  .intro h1 {
+    font-family: 'Fraunces', serif;
+    font-weight: 300;
+    font-variation-settings: "opsz" 144;
+    font-size: clamp(48px, 6vw, 86px);
+    line-height: 0.92;
+    letter-spacing: -0.045em;
+    margin-bottom: 28px;
+  }
+
+  .intro h1 em {
+    font-style: italic;
+    font-weight: 600;
+    color: var(--accent);
+  }
+
+  .intro .deck {
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--ink-soft);
+    max-width: 42ch;
+    margin-bottom: 36px;
+  }
+
+  .intro .deck::first-letter {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: 38px;
+    float: left;
+    line-height: 0.85;
+    padding: 6px 8px 0 0;
+    color: var(--accent);
+  }
+
+  .keylist {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px 18px;
+    border-top: 1px solid var(--rule);
+    padding-top: 24px;
+  }
+
+  .keylist dt {
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+
+  .keylist dd {
+    font-family: 'Fraunces', serif;
+    font-size: 22px;
+    font-weight: 400;
+    font-variation-settings: "opsz" 144;
+    margin-bottom: 6px;
+  }
+
+  /* ============ MACHINE ============ */
+  .machine {
+    position: relative;
+    background: linear-gradient(160deg, #f3ece0 0%, #e6dcc6 60%, #d8cdb3 100%);
+    border: 1px solid var(--ink);
+    border-radius: 4px;
+    box-shadow: var(--shadow);
+    padding: 26px 24px 24px;
+    transform: rotate(-0.6deg);
+  }
+
+  .machine::before {
+    content: "";
+    position: absolute;
+    inset: 8px;
+    border: 1px dashed rgba(26,22,18,0.25);
+    border-radius: 2px;
+    pointer-events: none;
+  }
+
+  .plate {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .plate .model {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-weight: 400;
+    font-size: 18px;
+    letter-spacing: -0.02em;
+  }
+
+  .plate .serial {
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    color: var(--ink-soft);
+  }
+
+  /* Display */
+  .display {
+    position: relative;
+    background: #1f1a14;
+    color: #f0e6cf;
+    border-radius: 3px;
+    padding: 18px 18px 14px;
+    margin-bottom: 18px;
+    box-shadow:
+      inset 0 2px 8px rgba(0,0,0,0.6),
+      inset 0 -1px 0 rgba(240,230,207,0.05);
+    overflow: hidden;
+  }
+
+  .display::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      rgba(240,230,207,0.04) 0px,
+      rgba(240,230,207,0.04) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+    pointer-events: none;
+  }
+
+  .display .row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    position: relative;
+    z-index: 1;
+  }
+
+  .display .label {
+    font-size: 10px;
+    letter-spacing: 0.24em;
+    color: #8b7e60;
+    text-transform: uppercase;
+  }
+
+  .display .indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    color: #c8462c;
+    text-transform: uppercase;
+  }
+
+  .display .indicator .dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: #c8462c;
+    box-shadow: 0 0 8px #c8462c;
+    animation: blink 1.6s infinite;
+  }
+
+  @keyframes blink {
+    0%, 60% { opacity: 1; }
+    61%, 100% { opacity: 0.2; }
+  }
+
+  .display .history {
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    color: #8b7e60;
+    min-height: 18px;
+    text-align: right;
+    margin: 4px 0 6px;
+    position: relative;
+    z-index: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .display .main {
+    font-family: 'Fraunces', serif;
+    font-variation-settings: "opsz" 144;
+    font-weight: 300;
+    font-size: clamp(40px, 6vw, 56px);
+    line-height: 1;
+    letter-spacing: -0.02em;
+    text-align: right;
+    color: #f3e9d2;
+    position: relative;
+    z-index: 1;
+    word-break: break-all;
+    min-height: 56px;
+    transition: transform 0.12s ease;
+  }
+
+  .display .main.flip {
+    animation: flip 0.32s ease;
+  }
+
+  @keyframes flip {
+    0% { transform: translateY(0); opacity: 1; }
+    40% { transform: translateY(-6px); opacity: 0.3; }
+    41% { transform: translateY(6px); opacity: 0.3; }
+    100% { transform: translateY(0); opacity: 1; }
+  }
+
+  /* Keypad */
+  .keys {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+
+  button.key {
+    appearance: none;
+    border: 1px solid var(--ink);
+    background: linear-gradient(180deg, #f6efe2 0%, #e3d8be 100%);
+    font-family: 'Fraunces', serif;
+    font-variation-settings: "opsz" 144;
+    font-weight: 400;
+    font-size: 22px;
+    padding: 16px 0;
+    cursor: pointer;
+    border-radius: 2px;
+    position: relative;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.5),
+      0 2px 0 var(--ink);
+    transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.15s ease;
+    color: var(--ink);
+    user-select: none;
+  }
+
+  button.key.op,
+  button.key.eq {
+    font-size: 34px;
+    line-height: 1;
+  }
+
+  button.key:hover {
+    background: linear-gradient(180deg, #fbf5e8 0%, #ecdfc2 100%);
+  }
+
+  button.key:active, button.key.pressed {
+    transform: translateY(2px);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), 0 0 0 var(--ink);
+    background: linear-gradient(180deg, #ddd0b0 0%, #e3d8be 100%);
+  }
+
+  button.key.op {
+    background: linear-gradient(180deg, #1f1a14 0%, #0f0c08 100%);
+    color: #ffffff;
+    font-weight: 700;
+    text-shadow: none;
+  }
+
+  button.key.op:hover {
+    background: #1f1a14;
+    color: #ffffff;
+  }
+
+  button.key.eq {
+    background: linear-gradient(180deg, #d8513b 0%, #a8351f 100%);
+    color: #ffffff;
+    font-weight: 700;
+    text-shadow: none;
+  }
+
+  button.key.eq:hover {
+    background: #c8462c;
+    color: #ffffff;
+  }
+
+  button.key.fn {
+    background: transparent;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    border-color: var(--rule);
+    box-shadow: none;
+    padding: 12px 0;
+  }
+
+  button.key.fn:hover {
+    color: var(--ink);
+    border-color: var(--ink);
+    background: rgba(255,255,255,0.3);
+  }
+
+  button.key.fn:active, button.key.fn.pressed {
+    transform: translateY(1px);
+    box-shadow: none;
+  }
+
+  button.key.wide {
+    grid-column: span 2;
+  }
+
+  /* Footplate */
+  .footplate {
+    margin-top: 18px;
+    padding-top: 12px;
+    border-top: 1px solid var(--rule);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+
+  .footplate .stamp {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 13px;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--accent);
+  }
+
+  /* Right column — log */
+  .logcol h2 {
+    font-family: 'Fraunces', serif;
+    font-weight: 600;
+    font-size: 22px;
+    letter-spacing: -0.02em;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+  }
+
+  .logcol h2 .counter {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    color: var(--ink-soft);
+    font-weight: 400;
+  }
+
+  .logcol .sub {
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: 16px;
+  }
+
+  .tape {
+    background: #f6efde;
+    border: 1px solid var(--ink);
+    border-radius: 2px;
+    padding: 4px 0;
+    max-height: 420px;
+    overflow-y: auto;
+    box-shadow: inset 0 0 30px rgba(184,136,64,0.08);
+  }
+
+  .tape::-webkit-scrollbar { width: 6px; }
+  .tape::-webkit-scrollbar-track { background: transparent; }
+  .tape::-webkit-scrollbar-thumb { background: var(--ink); border-radius: 3px; }
+
+  .tape .row {
+    display: grid;
+    grid-template-columns: 50px 1fr auto;
+    align-items: baseline;
+    gap: 10px;
+    padding: 10px 14px;
+    border-bottom: 1px dotted var(--rule);
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    animation: slidein 0.4s ease;
+  }
+
+  @keyframes slidein {
+    from { opacity: 0; transform: translateX(-6px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  .tape .row:last-child { border-bottom: none; }
+
+  .tape .row .idx {
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    color: var(--accent);
+    font-size: 14px;
+  }
+
+  .tape .row .expr {
+    color: var(--ink-soft);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .tape .row .res {
+    font-family: 'Fraunces', serif;
+    font-size: 18px;
+    font-weight: 400;
+    color: var(--ink);
+  }
+
+  .tape .empty {
+    padding: 40px 14px;
+    text-align: center;
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    color: var(--ink-soft);
+    font-size: 15px;
+  }
+
+  .footnote {
+    margin-top: 18px;
+    font-size: 11px;
+    line-height: 1.6;
+    color: var(--ink-soft);
+    border-top: 1px solid var(--rule);
+    padding-top: 14px;
+  }
+
+  .footnote::before {
+    content: "§ ";
+    color: var(--accent);
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+  }
+
+  /* Page-load reveal */
+  .reveal { opacity: 0; transform: translateY(8px); animation: rise 0.8s ease forwards; }
+  .reveal.d1 { animation-delay: 0.05s; }
+  .reveal.d2 { animation-delay: 0.18s; }
+  .reveal.d3 { animation-delay: 0.32s; }
+  .reveal.d4 { animation-delay: 0.48s; }
+  .reveal.d5 { animation-delay: 0.62s; }
+
+  @keyframes rise {
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Tiny stamp corner */
+  .stamp-corner {
+    position: absolute;
+    top: -14px;
+    right: 24px;
+    width: 84px;
+    height: 84px;
+    border: 2px solid var(--accent);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    color: var(--accent);
+    background: var(--bg);
+    transform: rotate(-8deg);
+    line-height: 1.2;
+    z-index: 2;
+    box-shadow: 0 4px 10px rgba(26,22,18,0.15);
+  }
+
+  .stamp-corner b {
+    display: block;
+    font-style: normal;
+    font-weight: 800;
+    font-size: 13px;
+    letter-spacing: 0.02em;
+    margin-top: 2px;
+  }
+
+  @media (max-width: 880px) {
+    .stage { grid-template-columns: 1fr; gap: 40px; padding: 32px 20px 60px; }
+    .machine { transform: none; }
+  }
+</style>
+</head>
+<body>
+  <main class="stage">
+
+    <header class="masthead reveal d1">
+      <div class="logo">calq<span class="period">.</span></div>
+      <div class="meta">No. <b>0001</b> &nbsp;·&nbsp; Printed in <b>Markdown</b> &nbsp;·&nbsp; Vol. 01</div>
+    </header>
+
+    <section class="intro reveal d2">
+      <h1>A small <em>mechanical</em><br/>calculator, for<br/>reckoning.</h1>
+      <p class="deck">
+        A four-function instrument cast in brass and ink. Tap the keys as you would a typewriter —
+        the machine tallies each press, keeps a written tape of your figures, and answers with
+        the calm authority of an old ledger. Built from nothing but HTML, a little CSS, and a few
+        lines of JavaScript.
+      </p>
+      <dl class="keylist">
+        <div><dt>Keyboard</dt><dd>0 — 9</dd></div>
+        <div><dt>Operators</dt><dd>+ − × ÷</dd></div>
+        <div><dt>Equals</dt><dd>Enter · =</dd></div>
+        <div><dt>Clear</dt><dd>Esc · C</dd></div>
+      </dl>
+    </section>
+
+    <section class="machine reveal d3" aria-label="Calculator">
+      <div class="stamp-corner">Approved<br/><b>EST. 2026</b></div>
+
+      <div class="plate">
+        <div class="model">The Reckoner</div>
+        <div class="serial">SER · 001 / 250</div>
+      </div>
+
+      <div class="display" role="status" aria-live="polite">
+        <div class="row">
+          <span class="label">Tape</span>
+          <span class="indicator"><span class="dot"></span>Ready</span>
+        </div>
+        <div class="history" id="history">&nbsp;</div>
+        <div class="main" id="main">0</div>
+      </div>
+
+      <div class="keys" id="keys">
+        <button class="key fn" data-action="clear">AC</button>
+        <button class="key fn" data-action="sign">±</button>
+        <button class="key fn" data-action="percent">%</button>
+        <button class="key op" data-op="/">÷</button>
+
+        <button class="key" data-num="7">7</button>
+        <button class="key" data-num="8">8</button>
+        <button class="key" data-num="9">9</button>
+        <button class="key op" data-op="*">×</button>
+
+        <button class="key" data-num="4">4</button>
+        <button class="key" data-num="5">5</button>
+        <button class="key" data-num="6">6</button>
+        <button class="key op" data-op="-">−</button>
+
+        <button class="key" data-num="1">1</button>
+        <button class="key" data-num="2">2</button>
+        <button class="key" data-num="3">3</button>
+        <button class="key op" data-op="+">+</button>
+
+        <button class="key wide" data-num="0">0</button>
+        <button class="key" data-action="dot">.</button>
+        <button class="key eq" data-action="equals">=</button>
+      </div>
+
+      <div class="footplate">
+        <span>Patent Pending · MMXXVI</span>
+        <span class="stamp">— Reckon &amp; be done —</span>
+      </div>
+    </section>
+
+    <aside class="logcol reveal d4">
+      <h2>
+        <span>The Tape</span>
+        <span class="counter" id="counter">0 entries</span>
+      </h2>
+      <div class="sub">A running record of your sums</div>
+      <div class="tape" id="tape">
+        <div class="empty">No figures yet.<br/>Press a key to begin.</div>
+      </div>
+      <p class="footnote">
+        The machine holds a single line of working memory and an unbounded tape of past
+        reckonings. Press AC to clear the working line; the tape persists until you press
+        the small clear beneath it.
+      </p>
+    </aside>
+
+  </main>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const mainEl   = $('main');
+  const histEl   = $('history');
+  const tapeEl   = $('tape');
+  const countEl  = $('counter');
+
+  let display   = '0';
+  let previous  = null;
+  let operator  = null;
+  let waiting   = false;
+  let tape      = [];
+  let errored   = false;
+  let lastOp    = null;   // for repeat-equals
+  let lastArg   = null;   // for repeat-equals
+
+  const fmt = (n) => {
+    if (!Number.isFinite(n)) return 'Error';
+    const s = String(n);
+    if (s.length <= 14) return s;
+    // Long number: trim to 10 significant digits, then strip trailing zeros
+    // from the mantissa without touching any exponent (e.g. 1e+21).
+    let out = Number(n).toPrecision(10);
+    if (out.includes('e')) {
+      const [m, ex] = out.split('e');
+      return m.replace(/\.?0+$/, '') + 'e' + ex;
+    }
+    return out.includes('.') ? out.replace(/\.?0+$/, '') : out;
+  };
+
+  const render = (animate=false) => {
+    mainEl.textContent = display;
+    if (animate) {
+      mainEl.classList.remove('flip');
+      void mainEl.offsetWidth;
+      mainEl.classList.add('flip');
+    }
+  };
+
+  const updateCounter = () => {
+    const n = tape.length;
+    countEl.textContent = n === 0 ? '0 entries' : n === 1 ? '1 entry' : `${n} entries`;
+  };
+
+  const renderTape = () => {
+    if (tape.length === 0) {
+      tapeEl.innerHTML = '<div class="empty">No figures yet.<br/>Press a key to begin.</div>';
+      updateCounter();
+      return;
+    }
+    tapeEl.replaceChildren();
+    tape.slice().reverse().forEach((r, i) => {
+      const idx = tape.length - i;
+      const row = document.createElement('div');
+      row.className = 'row';
+      const mk = (cls, txt) => {
+        const s = document.createElement('span');
+        s.className = cls;
+        s.textContent = txt;
+        return s;
+      };
+      row.append(
+        mk('idx', `№ ${String(idx).padStart(3, '0')}`),
+        mk('expr', r.expr),
+        mk('res', r.res)
+      );
+      tapeEl.append(row);
+    });
+    updateCounter();
+    tapeEl.scrollTop = 0;
+  };
+
+  // Wipe a poisoned (Error) state back to zero so the machine never locks up.
+  const resetIfErrored = () => {
+    if (!errored) return;
+    display = '0'; previous = null; operator = null;
+    waiting = false; lastOp = null; lastArg = null;
+    histEl.innerHTML = '&nbsp;';
+    errored = false;
+  };
+
+  const inputDigit = (d) => {
+    resetIfErrored();
+    if (waiting) { display = d; waiting = false; }
+    else { display = display === '0' ? d : display + d; }
+    render(true);
+  };
+
+  const inputDot = () => {
+    resetIfErrored();
+    if (waiting) { display = '0.'; waiting = false; }
+    else if (!display.includes('.')) { display += '.'; }
+    render();
+  };
+
+  const backspace = () => {
+    if (errored) { resetIfErrored(); render(); return; }
+    if (waiting) return;
+    display = display.length > 1 && !(display.length === 2 && display.startsWith('-'))
+      ? display.slice(0, -1)
+      : '0';
+    render();
+  };
+
+  const toggleSign = () => {
+    if (errored || display === '0') return;
+    display = display.startsWith('-') ? display.slice(1) : '-' + display;
+    render();
+  };
+
+  const percent = () => {
+    if (errored) return;
+    const v = parseFloat(display);
+    if (!Number.isFinite(v)) return;
+    display = fmt(v / 100);
+    render();
+  };
+
+  const compute = (a, b, op) => {
+    switch (op) {
+      case '+': return a + b;
+      case '-': return a - b;
+      case '*': return a * b;
+      case '/': return a / b;   // 0-divide yields ±Infinity, caught downstream
+      default:  return NaN;
+    }
+  };
+
+  const opSymbol = (op) => ({ '+':'+', '-':'−', '*':'×', '/':'÷' }[op] || op);
+
+  // Mark machine errored: show 'Error', drop pending op, keep tape.
+  const fail = () => {
+    display = 'Error';
+    errored = true;
+    previous = null; operator = null; waiting = false;
+    lastOp = null; lastArg = null;
+    histEl.innerHTML = '&nbsp;';
+    render(true);
+  };
+
+  const setOperator = (op) => {
+    if (errored) return;
+    const current = parseFloat(display);
+
+    if (operator && !waiting) {
+      const result = compute(previous, current, operator);
+      if (!Number.isFinite(result)) { fail(); return; }
+      const expr = `${fmt(previous)} ${opSymbol(operator)} ${fmt(current)}`;
+      display = fmt(result);
+      previous = result;
+      tape.push({ expr, res: display });
+      renderTape();
+    } else {
+      previous = current;
+    }
+
+    operator = op;
+    waiting = true;
+    histEl.textContent = `${fmt(previous)} ${opSymbol(op)}`;
+    render(true);
+  };
+
+  const equals = () => {
+    if (errored) return;
+    let current, op;
+    if (operator != null) {
+      current = parseFloat(display);
+      op = operator;
+      lastOp = operator;          // remember for repeat-equals
+      lastArg = current;
+    } else if (lastOp != null) {
+      // Repeat last operation: previous (op) lastArg
+      current = lastArg;
+      op = lastOp;
+    } else {
+      return;
+    }
+
+    const result = compute(previous, current, op);
+    if (!Number.isFinite(result)) { fail(); return; }
+    const expr = `${fmt(previous)} ${opSymbol(op)} ${fmt(current)} =`;
+    const resStr = fmt(result);
+    display = resStr;
+    tape.push({ expr, res: resStr });
+    renderTape();
+    previous = result;
+    operator = null;
+    waiting = true;
+    histEl.textContent = expr;
+    render(true);
+  };
+
+  const clearAll = () => {
+    display = '0';
+    previous = null;
+    operator = null;
+    waiting = false;
+    errored = false;
+    lastOp = null;
+    lastArg = null;
+    histEl.innerHTML = '&nbsp;';
+    render();
+  };
+
+  const clearTape = () => {
+    tape = [];
+    renderTape();
+  };
+
+  // Events
+  document.getElementById('keys').addEventListener('click', (e) => {
+    const btn = e.target.closest('button.key');
+    if (!btn) return;
+    btn.classList.add('pressed');
+    setTimeout(() => btn.classList.remove('pressed'), 120);
+
+    const num = btn.dataset.num;
+    const op  = btn.dataset.op;
+    const act = btn.dataset.action;
+
+    if (num !== undefined) inputDigit(num);
+    else if (op !== undefined) setOperator(op);
+    else if (act === 'dot') inputDot();
+    else if (act === 'sign') toggleSign();
+    else if (act === 'percent') percent();
+    else if (act === 'equals') equals();
+    else if (act === 'clear') {
+      if (tape.length > 0 && display === '0' && previous == null) clearTape();
+      else clearAll();
+    }
+  });
+
+  // Double-click AC clears tape
+  document.querySelector('[data-action="clear"]').addEventListener('dblclick', clearTape);
+
+  // Keyboard
+  document.addEventListener('keydown', (e) => {
+    const k = e.key;
+    const press = (sel) => {
+      const b = document.querySelector(sel);
+      if (b) { b.classList.add('pressed'); setTimeout(() => b.classList.remove('pressed'), 120); }
+    };
+    if (/^[0-9]$/.test(k)) { press(`[data-num="${k}"]`); inputDigit(k); e.preventDefault(); }
+    else if (k === '.') { press('[data-action="dot"]'); inputDot(); e.preventDefault(); }
+    else if (k === '+') { press('[data-op="+"]'); setOperator('+'); e.preventDefault(); }
+    else if (k === '-') { press('[data-op="-"]'); setOperator('-'); e.preventDefault(); }
+    else if (k === '*') { press('[data-op="*"]'); setOperator('*'); e.preventDefault(); }
+    else if (k === '/') { press('[data-op="/"]'); setOperator('/'); e.preventDefault(); }
+    else if (k === 'Enter' || k === '=') { press('[data-action="equals"]'); equals(); e.preventDefault(); }
+    else if (k === 'Escape' || k === 'c' || k === 'C') { press('[data-action="clear"]'); clearAll(); e.preventDefault(); }
+    else if (k === '%') { press('[data-action="percent"]'); percent(); e.preventDefault(); }
+    else if (k === 'Backspace') { backspace(); e.preventDefault(); }
+    else if (k === '_' || k === 's') { press('[data-action="sign"]'); toggleSign(); e.preventDefault(); }
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
